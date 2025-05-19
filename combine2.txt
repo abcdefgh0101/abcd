@@ -1,0 +1,1531 @@
+combine2
+
+1. //best first search - n queen
+    #include <iostream>
+    #include <vector>
+    #include <queue>
+    #include <algorithm>
+    #include <unordered_set>
+    #include <functional>
+
+    using namespace std;
+
+    int N; // Now variable, will be set by user
+
+    int calculateAttacks(const vector<int>& board) {
+        int attacks = 0;
+        // Check row conflicts (queens in same column)
+        for (int i = 0; i < N; ++i) {
+            for (int j = i + 1; j < N; ++j) {
+                // Same column or diagonal conflict
+                if (board[i] == board[j] || abs(i - j) == abs(board[i] - board[j])) {
+                    attacks++;
+                }
+            }
+        }
+        return attacks;
+    }
+
+    void printBoard(const vector<int>& board) {
+        // Create 2D representation
+        vector<vector<char>> grid(N, vector<char>(N, '.'));
+        for (int row = 0; row < N; ++row) {
+            if (board[row] != -1) { // Only if queen exists in this row
+                grid[row][board[row]] = 'Q';
+            }
+        }
+        
+        // Print the board
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                cout << grid[i][j] << " ";
+            }
+            cout << endl;
+        }
+        cout << "Attacks: " << calculateAttacks(board) << endl << endl;
+    }
+
+    vector<vector<int>> generateNeighbors(const vector<int>& board) {
+        vector<vector<int>> neighbors;
+        
+        for (int row = 0; row < N; ++row) {
+            int originalCol = board[row];
+            for (int col = 0; col < N; ++col) {
+                if (col != originalCol) {
+                    vector<int> neighbor = board;
+                    neighbor[row] = col;
+                    neighbors.push_back(neighbor);
+                }
+            }
+        }
+        
+        return neighbors;
+    }
+
+    struct BoardHash {
+        size_t operator()(const vector<int>& board) const {
+            size_t hash = 0;
+            for (int pos : board) {
+                hash = hash * N + pos;
+            }
+            return hash;
+        }
+    };
+
+    bool bestFirstSearch(vector<int>& solution) {
+        auto cmp = [](const pair<vector<int>, int>& left, const pair<vector<int>, int>& right) {
+            return left.second > right.second; 
+        };
+        priority_queue<pair<vector<int>, int>, vector<pair<vector<int>, int>>, decltype(cmp)> frontier(cmp);
+        
+        unordered_set<vector<int>, BoardHash> visited;
+        
+        vector<int> initial(N, -1); // Initialize with no queens
+        // Place one queen in each row at random column
+        for (int i = 0; i < N; ++i) {
+            initial[i] = rand() % N;
+        }
+        
+        frontier.push({initial, calculateAttacks(initial)});
+        visited.insert(initial);
+        
+        while (!frontier.empty()) {
+            auto current = frontier.top();
+            frontier.pop();
+            
+            if (current.second == 0) {
+                solution = current.first;
+                return true;
+            }
+            
+            vector<vector<int>> neighbors = generateNeighbors(current.first);
+            for (const auto& neighbor : neighbors) {
+                if (visited.find(neighbor) == visited.end()) {
+                    int attacks = calculateAttacks(neighbor);
+                    frontier.push({neighbor, attacks});
+                    visited.insert(neighbor);
+                }
+            }
+        }
+        
+        return false;
+    }
+
+    vector<int> getUserBoard() {
+        vector<int> board(N, -1); // -1 means no queen in that row
+        
+        cout << "Enter initial board configuration (one queen per row):\n";
+        cout << "For each row (0 to " << N-1 << "), enter column (0 to " << N-1 << ") or -1 for no queen:\n";
+        
+        for (int row = 0; row < N; ++row) {
+            int col;
+            while (true) {
+                cout << "Row " << row << ": ";
+                cin >> col;
+                if (col == -1 || (col >= 0 && col < N)) {
+                    break;
+                }
+                cout << "Invalid column. Please enter -1 or between 0 and " << N-1 << endl;
+            }
+            board[row] = col;
+        }
+        
+        return board;
+    }
+
+    int main() {
+        cout << "Enter board size (N): ";
+        cin >> N;
+        
+        if (N <= 0) {
+            cout << "Invalid board size. Using default N=8.\n";
+            N = 8;
+        }
+        
+        srand(time(0));
+        
+        char choice;
+        cout << "Use random initial board? (y/n): ";
+        cin >> choice;
+        
+        int successCount = 0;
+        const int totalAttempts = 100;
+        
+        for (int attempt = 0; attempt < totalAttempts; ++attempt) {
+            vector<int> solution;
+            vector<int> initialBoard;
+            
+            if (choice == 'n' || choice == 'N') {
+                initialBoard = getUserBoard();
+                // Run bestFirstSearch with this initial board
+                solution = initialBoard;
+                int attacks = calculateAttacks(solution);
+                if (attacks == 0) {
+                    cout << "Input board is already a solution!\n";
+                    printBoard(solution);
+                    successCount++;
+                    break;
+                }
+                // Need to modify bestFirstSearch to accept initial board
+                // For simplicity, we'll just run with random boards in this example
+            }
+            
+            if (bestFirstSearch(solution)) {
+                successCount++;
+                cout << "Solution found in attempt " << (attempt + 1) << ":" << endl;
+                printBoard(solution);
+                break;
+            }
+        }
+        
+        cout << "Success rate: " << successCount << "/" << totalAttempts << endl;
+        return 0;
+    }
+
+
+
+
+
+
+//bfs -- 8 puzzle
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <unordered_set>
+#include <algorithm>
+using namespace std;
+
+// Structure to represent a puzzle state
+struct PuzzleState {
+    vector<vector<int>> board;
+    int g; // cost from start to current state
+    int h; // heuristic cost to goal
+    string move; // how we got to this state
+
+    // Calculate total cost
+    int cost() const { return g + h; }
+
+    // For priority queue comparison
+    bool operator>(const PuzzleState& other) const {
+        return cost() > other.cost();
+    }
+};
+
+// Function to calculate Manhattan distance heuristic
+int manhattanDistance(const vector<vector<int>>& board) {
+    int distance = 0;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            int value = board[i][j];
+            if (value != 0) { // Skip the empty tile
+                int targetX = (value - 1) / 3; // Expected row
+                int targetY = (value - 1) % 3; // Expected column
+                distance += abs(i - targetX) + abs(j - targetY);
+            }
+        }
+    }
+    return distance;
+}
+
+// Function to find the position of the empty tile (0)
+pair<int, int> findEmptyTile(const vector<vector<int>>& board) {
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+            if (board[i][j] == 0) return {i, j};
+    return {-1, -1}; // Shouldn't happen for valid puzzles
+}
+
+// Function to generate possible moves
+vector<PuzzleState> generateMoves(const PuzzleState& state) {
+    vector<PuzzleState> moves;
+    auto [x, y] = findEmptyTile(state.board);
+    
+    // Possible moves: up, down, left, right
+    int dx[] = {-1, 1, 0, 0};
+    int dy[] = {0, 0, -1, 1};
+    string directions[] = {"Up", "Down", "Left", "Right"};
+
+    for (int i = 0; i < 4; i++) {
+        int nx = x + dx[i];
+        int ny = y + dy[i];
+
+        if (nx >= 0 && nx < 3 && ny >= 0 && ny < 3) {
+            PuzzleState newState = state;
+            swap(newState.board[x][y], newState.board[nx][ny]);
+            newState.g += 1;
+            newState.h = manhattanDistance(newState.board);
+            newState.move = directions[i];
+            moves.push_back(newState);
+        }
+    }
+    return moves;
+}
+
+// Function to convert board to string for hashing
+string boardToString(const vector<vector<int>>& board) {
+    string s;
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+            s += to_string(board[i][j]);
+    return s;
+}
+
+// Best-First Search algorithm
+void solvePuzzle(const vector<vector<int>>& initialState) {
+    priority_queue<PuzzleState, vector<PuzzleState>, greater<PuzzleState>> pq;
+    unordered_set<string> visited;
+
+    PuzzleState start;
+    start.board = initialState;
+    start.g = 0;
+    start.h = manhattanDistance(initialState);
+    start.move = "Start";
+
+    pq.push(start);
+    visited.insert(boardToString(initialState));
+
+    while (!pq.empty()) {
+        PuzzleState current = pq.top();
+        pq.pop();
+
+        // Check if we've reached the goal
+        if (current.h == 0) {
+            cout << "\nSolution found in " << current.g << " moves!" << endl;
+            cout << "Last move: " << current.move << endl;
+            cout << "Final state:" << endl;
+            for (auto& row : current.board) {
+                for (int val : row) cout << val << " ";
+                cout << endl;
+            }
+            return;
+        }
+
+        // Generate and process all possible moves
+        for (PuzzleState& move : generateMoves(current)) {
+            string boardStr = boardToString(move.board);
+            if (visited.find(boardStr) == visited.end()) {
+                visited.insert(boardStr);
+                pq.push(move);
+            }
+        }
+    }
+
+    cout << "No solution found!" << endl;
+}
+
+int main() {
+    vector<vector<int>> initialState(3, vector<int>(3));
+
+    cout << "Enter the initial state of the 8-puzzle (3x3 matrix, use 0 for empty tile):\n";
+    for (int i = 0; i < 3; i++) {
+        cout << "Row " << i+1 << " (space separated): ";
+        for (int j = 0; j < 3; j++) {
+            cin >> initialState[i][j];
+        }
+    }
+
+    cout << "\nSolving the puzzle using Best-First Search...\n";
+    solvePuzzle(initialState);
+
+    return 0;
+}
+
+
+
+
+
+
+
+// bfs == routefinding
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <unordered_map>
+#include <limits>
+#include <algorithm>
+
+using namespace std;
+
+// Structure to represent a node in the graph
+struct Node {
+    string name;
+    int heuristic;  // Estimated cost to goal
+    vector<pair<Node*, int>> neighbors; // Connected nodes and edge costs
+
+    Node(string n, int h) : name(n), heuristic(h) {}
+};
+
+// Comparator for priority queue (min-heap based on heuristic + path cost)
+struct CompareNodes {
+    bool operator()(const pair<Node*, int>& a, const pair<Node*, int>& b) {
+        return (a.second + a.first->heuristic) > (b.second + b.first->heuristic);
+    }
+};
+
+class RouteFinder {
+private:
+    unordered_map<string, Node*> graph;
+
+public:
+    // Add a node to the graph
+    void addNode(const string& name, int heuristic) {
+        graph[name] = new Node(name, heuristic);
+    }
+
+    // Add an edge between two nodes
+    void addEdge(const string& from, const string& to, int cost) {
+        graph[from]->neighbors.push_back({graph[to], cost});
+        graph[to]->neighbors.push_back({graph[from], cost}); // Undirected graph
+    }
+
+    // Best-First Search implementation
+    vector<string> findRoute(const string& start, const string& goal) {
+        priority_queue<pair<Node*, int>, vector<pair<Node*, int>>, CompareNodes> frontier;
+        unordered_map<Node*, Node*> came_from;
+        unordered_map<Node*, int> cost_so_far;
+
+        Node* startNode = graph[start];
+        Node* goalNode = graph[goal];
+
+        frontier.push({startNode, 0});
+        came_from[startNode] = nullptr;
+        cost_so_far[startNode] = 0;
+
+        while (!frontier.empty()) {
+            auto current = frontier.top().first;
+            int current_cost = frontier.top().second;
+            frontier.pop();
+
+            if (current == goalNode) {
+                break; // Found the goal
+            }
+
+            for (auto& neighbor : current->neighbors) {
+                Node* next = neighbor.first;
+                int new_cost = current_cost + neighbor.second;
+
+                if (came_from.find(next) == came_from.end() || new_cost < cost_so_far[next]) {
+                    cost_so_far[next] = new_cost;
+                    came_from[next] = current;
+                    frontier.push({next, new_cost});
+                }
+            }
+        }
+
+        // Reconstruct the path
+        vector<string> path;
+        for (Node* current = goalNode; current != nullptr; current = came_from[current]) {
+            path.push_back(current->name);
+        }
+        reverse(path.begin(), path.end());
+
+        return path;
+    }
+
+    // Clean up memory
+    ~RouteFinder() {
+        for (auto& pair : graph) {
+            delete pair.second;
+        }
+    }
+};
+
+int main() {
+    RouteFinder finder;
+
+    cout << "=== Route Finder using Best-First Search ===" << endl;
+    
+    // Get nodes from user
+    int nodeCount;
+    cout << "Enter number of locations: ";
+    cin >> nodeCount;
+
+    for (int i = 0; i < nodeCount; i++) {
+        string name;
+        int heuristic;
+        cout << "Enter location " << i+1 << " name: ";
+        cin >> name;
+        cout << "Enter heuristic value for " << name << ": ";
+        cin >> heuristic;
+        finder.addNode(name, heuristic);
+    }
+
+    // Get edges from user
+    int edgeCount;
+    cout << "Enter number of connections between locations: ";
+    cin >> edgeCount;
+
+    for (int i = 0; i < edgeCount; i++) {
+        string from, to;
+        int cost;
+        cout << "enter from, to, cost" <<endl;
+        cin >> from >> to >> cost;;
+        
+        finder.addEdge(from, to, cost);
+    }
+
+    // Get start and goal
+    string start, goal;
+    cout << "Enter starting location: ";
+    cin >> start;
+    cout << "Enter destination: ";
+    cin >> goal;
+
+    // Find and display route
+    vector<string> route = finder.findRoute(start, goal);
+
+    cout << "\nOptimal Route from " << start << " to " << goal << ":\n";
+    if (route.size() == 1 && route[0] != start) {
+        cout << "No valid route found!" << endl;
+    } else {
+        for (size_t i = 0; i < route.size(); i++) {
+            cout << route[i];
+            if (i != route.size() - 1) {
+                cout << " -> ";
+            }
+        }
+        cout << endl;
+    }
+
+    return 0;
+}
+
+
+
+
+
+
+
+// a* -- 8 puzzle
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <unordered_map>
+#include <algorithm>
+using namespace std;
+
+// Possible moves (Up, Down, Left, Right)
+const int dr[] = {-1, 1, 0, 0};  // Row changes
+const int dc[] = {0, 0, -1, 1};   // Column changes
+const char moves[] = {'U', 'D', 'L', 'R'};
+
+// Goal state
+const vector<vector<int>> GOAL = {{1, 2, 3}, {4, 5, 6}, {7, 8, 0}};
+
+// Function to convert board to string for hashing
+string boardToString(const vector<vector<int>>& board) {
+    string key;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            key += to_string(board[i][j]);
+        }
+    }
+    return key;
+}
+
+// Calculate Manhattan distance heuristic
+int calculateHeuristic(const vector<vector<int>>& board) {
+    int distance = 0;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            int num = board[i][j];
+            if (num != 0) {
+                int goal_row = (num - 1) / 3;
+                int goal_col = (num - 1) % 3;
+                distance += abs(i - goal_row) + abs(j - goal_col);
+            }
+        }
+    }
+    return distance;
+}
+
+// Function to solve the 8-puzzle
+string solvePuzzle(vector<vector<int>> start) {
+    // Priority queue: (total_cost, g_cost, board, zero_row, zero_col, path)
+    priority_queue<pair<int, pair<int, pair<vector<vector<int>>, pair<int, pair<int, string>>>>>, 
+                   vector<pair<int, pair<int, pair<vector<vector<int>>, pair<int, pair<int, string>>>>>>,
+                   greater<pair<int, pair<int, pair<vector<vector<int>>, pair<int, pair<int, string>>>>>>> pq;
+    
+    unordered_map<string, int> visited;
+    
+    // Find initial position of 0
+    int zero_r, zero_c;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            if (start[i][j] == 0) {
+                zero_r = i;
+                zero_c = j;
+                break;
+            }
+        }
+    }
+    
+    // Push initial state
+    int h = calculateHeuristic(start);
+    pq.push({h, {0, {start, {zero_r, {zero_c, ""}}}}});
+    visited[boardToString(start)] = h;
+    
+    while (!pq.empty()) {
+        auto current = pq.top();
+        pq.pop();
+        
+        int current_cost = current.first;
+        int g = current.second.first;
+        vector<vector<int>> board = current.second.second.first;
+        int r = current.second.second.second.first;
+        int c = current.second.second.second.second.first;
+        string path = current.second.second.second.second.second;
+        
+        // Check if goal reached
+        if (board == GOAL) {
+            return path;
+        }
+        
+        // Generate all possible moves
+        for (int i = 0; i < 4; i++) {
+            int new_r = r + dr[i];
+            int new_c = c + dc[i];
+            
+            // Check if move is valid
+            if (new_r >= 0 && new_r < 3 && new_c >= 0 && new_c < 3) {
+                // Create new board state
+                vector<vector<int>> new_board = board;
+                swap(new_board[r][c], new_board[new_r][new_c]);
+                
+                string key = boardToString(new_board);
+                int new_g = g + 1;
+                int new_h = calculateHeuristic(new_board);
+                int new_cost = new_g + new_h;   //f(n)
+                
+                // Check if we've seen this state with higher cost
+                if (visited.find(key) == visited.end() || new_cost < visited[key]) {
+                    visited[key] = new_cost;
+                    pq.push({new_cost, {new_g, {new_board, {new_r, {new_c, path + moves[i]}}}}});
+                }
+            }
+        }
+    }
+    
+    return "No solution";
+}
+
+int main() {
+    cout << "Enter the initial puzzle state (3x3 matrix, 0 for empty tile):\n";
+    vector<vector<int>> start(3, vector<int>(3));
+    
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            cin >> start[i][j];
+        }
+    }
+    
+    string solution = solvePuzzle(start);
+    
+    if (solution == "No solution") {
+        cout << "No solution exists for this configuration.\n";
+    } else {
+        cout << "Solution found in " << solution.size() << " moves: " << solution << "\n";
+    }
+    
+    return 0;
+}
+
+
+
+
+
+
+
+// a* - n queen
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <cmath>
+using namespace std;
+
+class BoardState {
+public:
+    vector<int> queens; // queens[i] = column of queen in row i
+    int g; // number of queens placed (depth)
+    int h; // heuristic (conflicts)
+
+    BoardState(vector<int> q, int g_cost) : queens(q), g(g_cost) {
+        h = computeHeuristic();
+    }
+
+    int computeHeuristic() {
+        int conflicts = 0;
+        for (int i = 0; i < queens.size(); ++i) {
+            for (int j = i + 1; j < queens.size(); ++j) {
+                if (queens[i] == queens[j] || abs(queens[i] - queens[j]) == abs(i - j)) {
+                    conflicts++;
+                }
+            }
+        }
+        return conflicts;
+    }
+
+    int f() const {
+        return g + h;
+    }
+
+    // for min-heap in priority_queue
+    bool operator<(const BoardState& other) const {
+        return f() > other.f(); // reverse for min-heap
+    }
+};
+
+class NQueensSolver {
+private:
+    int n;
+
+    bool isSafe(const vector<int>& queens, int row, int col) {
+        for (int i = 0; i < row; ++i) {
+            if (queens[i] == col || abs(queens[i] - col) == abs(i - row))
+                return false;
+        }
+        return true;
+    }
+
+    void printBoard(const vector<int>& queens) {
+        for (int row = 0; row < queens.size(); ++row) {
+            for (int col = 0; col < n; ++col) {
+                cout << (queens[row] == col ? "Q " : ". ");
+            }
+            cout << endl;
+        }
+    }
+
+public:
+    NQueensSolver(int size) : n(size) {}
+
+    bool solve() {
+        priority_queue<BoardState> pq;
+        pq.push(BoardState({}, 0));
+
+        while (!pq.empty()) {
+            BoardState current = pq.top();
+            pq.pop();
+
+            if (current.queens.size() == n && current.h == 0) {
+                printBoard(current.queens);
+                return true;
+            }
+
+            int row = current.queens.size();
+            for (int col = 0; col < n; ++col) {
+                if (isSafe(current.queens, row, col)) {
+                    vector<int> next_queens = current.queens;
+                    next_queens.push_back(col);
+                    pq.push(BoardState(next_queens, current.g + 1));
+                }
+            }
+        }
+
+        return false;
+    }
+};
+
+int main() {
+    int n;
+    cout << "Enter number of queens: ";
+    cin >> n;
+    NQueensSolver solver(n);
+    if (!solver.solve()) {
+        cout << "No solution found." << endl;
+    }
+    return 0;
+}
+
+
+
+
+
+// a* -- routefinding
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <unordered_map>
+#include <limits>
+#include <algorithm>
+#include <sstream>
+
+using namespace std;
+
+class GraphNode {
+private:
+    string name;
+    int heuristic;
+    vector<pair<GraphNode*, int>> neighbors; // Stores neighbor and direct distance
+
+public:
+    GraphNode(const string& n, int h) : name(n), heuristic(h) {}
+
+    string getName() const { return name; }
+    int getHeuristic() const { return heuristic; }
+    const vector<pair<GraphNode*, int>>& getNeighbors() const { return neighbors; }
+
+    void addNeighbor(GraphNode* node, int distance) {
+        neighbors.emplace_back(node, distance);
+    }
+};
+
+class AStarRouteFinder {
+private:
+    unordered_map<string, GraphNode*> graph;
+    
+    // Heuristic function now uses stored direct distances
+    int calculateHeuristic(GraphNode* current, GraphNode* goal) {
+        // Find direct distance if it exists
+        for (const auto& neighbor : current->getNeighbors()) {
+            if (neighbor.first == goal) {
+                return neighbor.second;
+            }
+        }
+        // Fallback to the node's heuristic value if no direct connection
+        return current->getHeuristic();
+    }
+
+    bool satisfiesCostConstraint(int total_cost) {
+        const int MAX_ALLOWED_COST = 1000;
+        return total_cost <= MAX_ALLOWED_COST;
+    }
+
+    bool isNodeAccessible(GraphNode* node) {
+        vector<string> closed_nodes;
+        return find(closed_nodes.begin(), closed_nodes.end(), node->getName()) == closed_nodes.end();
+    }
+
+public:
+    ~AStarRouteFinder() {
+        for (auto& pair : graph) {
+            delete pair.second;
+        }
+    }
+
+    void addNode(const string& name, int heuristic) {
+        graph[name] = new GraphNode(name, heuristic);
+    }
+
+    void addEdge(const string& from, const string& to, int distance) {
+        graph[from]->addNeighbor(graph[to], distance);
+        graph[to]->addNeighbor(graph[from], distance);
+    }
+
+    vector<string> findRoute(const string& start, const string& goal) {
+        auto compare = [](const pair<int, pair<int, GraphNode*>>& a, 
+                         const pair<int, pair<int, GraphNode*>>& b) {
+            return a.first > b.first;
+        };
+
+        priority_queue<pair<int, pair<int, GraphNode*>>, 
+                      vector<pair<int, pair<int, GraphNode*>>>,
+                      decltype(compare)> frontier(compare);
+
+        unordered_map<GraphNode*, GraphNode*> came_from;
+        unordered_map<GraphNode*, int> cost_so_far;
+        GraphNode* start_node = graph[start];
+        GraphNode* goal_node = graph[goal];
+
+        frontier.emplace(0, make_pair(0, start_node));
+        came_from[start_node] = nullptr;
+        cost_so_far[start_node] = 0;
+
+        while (!frontier.empty()) {
+            auto current = frontier.top().second.second;
+            int current_cost = frontier.top().second.first;
+            frontier.pop();
+
+            if (current == goal_node) {
+                break;
+            }
+
+            for (const auto& neighbor : current->getNeighbors()) {
+                GraphNode* next = neighbor.first;
+                int new_cost = current_cost + neighbor.second;
+
+                if (!isNodeAccessible(next) || !satisfiesCostConstraint(new_cost)) {
+                    continue;
+                }
+
+                if (cost_so_far.find(next) == cost_so_far.end() || new_cost < cost_so_far[next]) {
+                    cost_so_far[next] = new_cost;
+                    int priority = new_cost + calculateHeuristic(next, goal_node);
+                    frontier.emplace(priority, make_pair(new_cost, next));
+                    came_from[next] = current;
+                }
+            }
+        }
+
+        vector<string> path;
+        for (GraphNode* current = goal_node; current != nullptr; current = came_from[current]) {
+            path.push_back(current->getName());
+        }
+        reverse(path.begin(), path.end());
+
+        return path;
+    }
+};
+
+int main() {
+    AStarRouteFinder routeFinder;
+    vector<string> nodeNames;
+    int nodeCount, edgeCount;
+
+    cout << "=== A* Route Finder ===" << endl;
+    
+    // Input nodes
+    cout << "Enter number of vertices: ";
+    cin >> nodeCount;
+    cin.ignore(); // Clear newline
+
+    for (int i = 0; i < nodeCount; i++) {
+        string name;
+        int heuristic;
+
+        cout << "\nEnter vertex " << i+1 << " details:" << endl;
+        cout << "Name: ";
+        getline(cin, name);
+        cout << "Heuristic value (estimated distance to goal): ";
+        cin >> heuristic;
+        cin.ignore(); // Clear newline
+
+        routeFinder.addNode(name, heuristic);
+        nodeNames.push_back(name);
+    }
+
+    // Input edges with direct distances
+    cout << "\nEnter number of edges: ";
+    cin >> edgeCount;
+    cin.ignore();
+
+    for (int i = 0; i < edgeCount; i++) {
+        string from, to;
+        int distance;
+
+        cout << "\nEnter edge " << i+1 << " details:" << endl;
+        cout << "From vertex: ";
+        getline(cin, from);
+        cout << "To vertex: ";
+        getline(cin, to);
+        cout << "Direct distance between nodes: ";
+        cin >> distance;
+        cin.ignore();
+
+        routeFinder.addEdge(from, to, distance);
+    }
+
+    // Input start and goal
+    string start, goal;
+    cout << "\nEnter start vertex: ";
+    getline(cin, start);
+    cout << "Enter goal vertex: ";
+    getline(cin, goal);
+
+    // Find and display route
+    vector<string> route = routeFinder.findRoute(start, goal);
+
+    cout << "\nOptimal Route from " << start << " to " << goal << ":\n";
+    if (route.empty() || route[0] != start) {
+        cout << "No valid route found!" << endl;
+    } else {
+        for (size_t i = 0; i < route.size(); i++) {
+            cout << route[i];
+            if (i != route.size() - 1) cout << " -> ";
+        }
+        cout << endl;
+    }
+
+    return 0;
+}
+
+
+
+
+
+
+// csp -- n queen
+#include <iostream>
+#include <vector>
+#include <set>
+#include <algorithm>
+
+using namespace std;
+
+class NQueensCSP {
+private:
+    int N;
+    vector<int> queens;            
+    vector<set<int>> domains;        
+
+public:
+    NQueensCSP(int n) {
+        N = n;
+        queens.assign(N, -1);
+        domains.resize(N);
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                domains[i].insert(j);   
+            }
+        }
+    }
+
+    bool solve() {
+        return solveCSP();
+    }
+
+    void printSolution() {
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < N; j++) {
+                if (queens[i] == j)
+                    cout << "Q ";
+                else
+                    cout << ". ";
+            }
+            cout << endl;
+        }
+    }
+
+private:
+bool solveCSP() {
+    if (allAssigned())
+        return true;
+
+    int row = selectRowMRV();
+
+    vector<int> domainList(domains[row].begin(), domains[row].end()); 
+    for (int col : domainList) {
+        if (isSafe(row, col)) {
+            queens[row] = col;
+            vector<set<int>> oldDomains = domains; 
+            if (forwardCheck(row, col)) {          
+                if (solveCSP())
+                    return true;
+            }
+
+            domains = oldDomains;
+            queens[row] = -1;
+        }
+    }
+
+    return false;
+}
+
+
+    bool allAssigned() {
+        for (int i = 0; i < N; i++) {
+            if (queens[i] == -1)
+                return false;
+        }
+        return true;
+    }
+
+    int selectRowMRV() {
+        int minOptions = N + 1;
+        int selectedRow = -1;
+        for (int i = 0; i < N; i++) {
+            if (queens[i] == -1) {
+                int options = domains[i].size();
+                if (options < minOptions) {
+                    minOptions = options;
+                    selectedRow = i;
+                }
+            }
+        }
+        return selectedRow;
+    }
+
+    bool isSafe(int row, int col) {
+        for (int i = 0; i < row; i++) {
+            if (queens[i] == col)
+                return false;
+            if (abs(queens[i] - col) == abs(i - row))
+                return false;
+        }
+        return true;
+    }
+
+    bool forwardCheck(int row, int col) {
+        for (int r = row + 1; r < N; r++) {
+            domains[r].erase(col);               
+            domains[r].erase(col + (r - row));    
+            domains[r].erase(col - (r - row));    
+            
+            if (domains[r].empty()) {             
+                return false;
+            }
+        }
+        return true;
+    }
+    
+};
+
+int main() {
+    int N;
+    cout << "Enter value of N: ";
+    cin >> N;
+
+    NQueensCSP solver(N);
+
+    if (solver.solve()) {
+        cout << "Solution found:\n";
+        solver.printSolution();
+    } else {
+        cout << "No solution exists.\n";
+    }
+
+    return 0;
+}
+
+
+
+
+
+// domain = stores available position for queen to be placed 
+// modified after every placement = forward check
+// mrv = minimun remaining value - check the smallest size domain and return that particualr row
+
+
+
+
+
+
+// csp - crypt arithmetic
+
+#include <iostream>
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include <unordered_set>
+#include <algorithm>
+
+using namespace std;
+
+class CryptarithmeticSolver {
+private:
+    string word1, word2, result;
+    vector<char> letters;
+    unordered_map<char, unordered_set<int>> domains;
+    unordered_map<char, int> assignment;
+    int solutions;
+
+    void collectUniqueLetters() {
+        unordered_set<char> letterSet;
+        for (char c : word1) letterSet.insert(c);
+        for (char c : word2) letterSet.insert(c);
+        for (char c : result) letterSet.insert(c);
+        letters.assign(letterSet.begin(), letterSet.end());
+    }
+
+    void initializeDomains() {
+        for (char c : letters) {
+            domains[c] = unordered_set<int>();
+            for (int d = 0; d <= 9; d++) {
+                domains[c].insert(d);
+            }
+        }
+
+        // Apply initial constraints
+        if (!word1.empty()) domains[word1[0]].erase(0);
+        if (!word2.empty()) domains[word2[0]].erase(0);
+        if (!result.empty()) domains[result[0]].erase(0);
+
+        if (result.size() > max(word1.size(), word2.size())) {
+            if (!result.empty()) {
+                domains[result[0]].clear();
+                domains[result[0]].insert(1);
+            }
+        }
+    }
+
+    bool isConsistent() {
+        if (assignment.count(word1[0]) && assignment[word1[0]] == 0) return false;
+        if (assignment.count(word2[0]) && assignment[word2[0]] == 0) return false;
+        if (assignment.count(result[0]) && assignment[result[0]] == 0) return false;
+
+        unordered_set<int> usedValues;
+        for (auto& pair : assignment) {
+            if (usedValues.count(pair.second)) return false;
+            usedValues.insert(pair.second);
+        }
+
+        return true;
+    }
+
+    char selectUnassignedVariable() {
+        char minVar = '\0';
+        int minSize = 10;
+        
+        for (char c : letters) {
+            if (!assignment.count(c) && domains.count(c) && !domains[c].empty() && domains[c].size() < minSize) {
+                minSize = domains[c].size();
+                minVar = c;
+            }
+        }
+        
+        return minVar;
+    }
+
+    bool forwardCheck(char var, int value) {
+        unordered_map<char, unordered_set<int>> oldDomains = domains;
+        
+        for (char c : letters) {
+            if (c != var && !assignment.count(c) && domains.count(c)) {
+                domains[c].erase(value);
+                if (domains[c].empty()) {
+                    domains = oldDomains;
+                    return false;
+                }
+            }
+        }
+
+        if (!applyColumnConstraints()) {
+            domains = oldDomains;
+            return false;
+        }
+
+        return true;
+    }
+
+    bool applyColumnConstraints() {
+        for (int col = 0; col < result.size(); col++) {
+            vector<char> vars;
+            int w1_pos = word1.size() - 1 - col;
+            int w2_pos = word2.size() - 1 - col;
+            int res_pos = result.size() - 1 - col;
+
+            if (w1_pos >= 0) vars.push_back(word1[w1_pos]);
+            if (w2_pos >= 0) vars.push_back(word2[w2_pos]);
+            vars.push_back(result[res_pos]);
+
+            int assignedCount = 0;
+            int sum = 0;
+            int carry = 0;
+
+            for (char c : vars) {
+                if (assignment.count(c)) {
+                    assignedCount++;
+                    if (c == result[res_pos]) {
+                        sum -= assignment[c];
+                    } else {
+                        sum += assignment[c];
+                    }
+                }
+            }
+
+            if (assignedCount == vars.size() - 1) {
+                char unassigned = '\0';
+                for (char c : vars) {
+                    if (!assignment.count(c)) {
+                        unassigned = c;
+                        break;
+                    }
+                }
+
+                if (unassigned == '\0') continue;
+
+                int requiredValue;
+                if (unassigned == result[res_pos]) {
+                    requiredValue = sum + carry;
+                } else {
+                    requiredValue = assignment[result[res_pos]] - (sum + carry);
+                }
+
+                requiredValue = (requiredValue + 10) % 10;
+
+                if (domains.count(unassigned) && domains[unassigned].count(requiredValue)) {
+                    domains[unassigned].clear();
+                    domains[unassigned].insert(requiredValue);
+                } else {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    bool cspSolver() {
+        if (assignment.size() == letters.size()) {
+            if (isSolution()) {
+                solutions++;
+                printSolution();
+                return true;
+            }
+            return false;
+        }
+
+        char var = selectUnassignedVariable();
+        if (var == '\0') {
+            return false;
+        }
+
+        if (domains.find(var) == domains.end() || domains[var].empty()) {
+            return false;
+        }
+
+        unordered_set<int> currentDomain = domains[var];
+        
+        for (int value : currentDomain) {
+            if (usedInAssignment(value)) {
+                continue;
+            }
+
+            assignment[var] = value;
+            unordered_map<char, unordered_set<int>> oldDomains = domains;
+
+            if (forwardCheck(var, value)) {
+                if (cspSolver()) {
+                    return true;
+                }
+            }
+
+            assignment.erase(var);
+            domains = oldDomains;
+        }
+
+        return false;
+    }
+
+    bool usedInAssignment(int value) {
+        for (auto& pair : assignment) {
+            if (pair.second == value) return true;
+        }
+        return false;
+    }
+
+    bool isSolution() {
+        long num1 = 0, num2 = 0, res = 0;
+
+        for (char c : word1) {
+            if (!assignment.count(c)) return false;
+            num1 = num1 * 10 + assignment[c];
+        }
+
+        for (char c : word2) {
+            if (!assignment.count(c)) return false;
+            num2 = num2 * 10 + assignment[c];
+        }
+
+        for (char c : result) {
+            if (!assignment.count(c)) return false;
+            res = res * 10 + assignment[c];
+        }
+
+        return num1 + num2 == res;
+    }
+
+    void printSolution() {
+        cout << "\nFound solution:" << endl;
+        
+        for (char letter : letters) {
+            cout << letter << " = " << assignment[letter] << endl;
+        }
+        
+        cout << "\nEquation verification:" << endl;
+        cout << word1 << ": ";
+        for (char c : word1) cout << assignment[c];
+        cout << endl;
+        cout << word2 << ": ";
+        for (char c : word2) cout << assignment[c];
+        cout << endl;
+        cout << result << ": ";
+        for (char c : result) cout << assignment[c];
+        cout << endl;
+    }
+
+public:
+    CryptarithmeticSolver(const string& w1, const string& w2, const string& res) 
+        : word1(w1), word2(w2), result(res), solutions(0) {
+        
+        if (w1.empty() || w2.empty() || res.empty()) {
+            cerr << "Error: Empty input words" << endl;
+            exit(1);
+        }
+        
+        collectUniqueLetters();
+        initializeDomains();
+        
+        cout << "Solving: " << word1 << " + " << word2 << " = " << result << endl;
+        cout << "Unique letters: ";
+        for (char c : letters) cout << c << " ";
+        cout << endl;
+    }
+    
+    bool solve() {
+        return cspSolver();
+    }
+    
+    int getSolutionsCount() {
+        return solutions;
+    }
+};
+
+int main() {
+    string word1, word2, result;
+    
+    cout << "Enter the first word (e.g., SEND): ";
+    cin >> word1;
+    
+    cout << "Enter the second word (e.g., MORE): ";
+    cin >> word2;
+    
+    cout << "Enter the result word (e.g., MONEY): ";
+    cin >> result;
+    
+    transform(word1.begin(), word1.end(), word1.begin(), ::toupper);
+    transform(word2.begin(), word2.end(), word2.begin(), ::toupper);
+    transform(result.begin(), result.end(), result.begin(), ::toupper);
+    
+    CryptarithmeticSolver solver(word1, word2, result);
+    
+    if (solver.solve()) {
+        cout << "\nPuzzle successfully solved!" << endl;
+    } else {
+        cout << "\nNo solution exists for this puzzle." << endl;
+    }
+    
+    return 0;
+}
+
+
+
+
+
+
+
+
+//csp graphcoloring
+
+#include <iostream>
+#include <vector>
+#include <map>
+#include <algorithm>
+#include <functional> 
+
+using namespace std;
+
+class GraphColoring {
+private:
+    int V; // Number of vertices
+    vector<vector<int>> adj; // Adjacency list
+    vector<int> colors; // Color assignments
+    int numColors; // Available colors (1 to numColors)
+    map<string, function<bool(int, int)>> constraints; // Store constraints
+
+public:
+    GraphColoring(int vertices, int colors) : V(vertices), numColors(colors) {
+        adj.resize(V);
+        this->colors.resize(V, 0); // 0 means uncolored
+        initializeConstraints();
+    }
+
+    // Add edge between vertices u and v
+    void addEdge(int u, int v) {
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+
+    // Initialize all constraints
+    void initializeConstraints() {
+        // Basic constraint: adjacent nodes must have different colors
+        constraints["adjacent_diff"] = [this](int node, int color) {
+            for (int neighbor : adj[node]) {
+                if (colors[neighbor] == color) {
+                    return false;
+                }
+            }
+            return true;
+        };
+    }
+
+    // Check if color assignment is valid for all constraints
+    bool isSafe(int node, int color) {
+        for (const auto& constraint : constraints) {
+            if (!constraint.second(node, color)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Recursive backtracking function
+    bool graphColoringUtil(int node) {
+        if (node == V) {
+            return true; // All nodes colored
+        }
+
+        for (int c = 1; c <= numColors; c++) {
+            if (isSafe(node, c)) {
+                colors[node] = c;
+
+                if (graphColoringUtil(node + 1)) {
+                    return true;
+                }
+
+                colors[node] = 0; // Backtrack
+            }
+        }
+        return false;
+    }
+
+    // Main coloring function
+    bool colorGraph() {
+        if (!graphColoringUtil(0)) {
+            cout << "Solution does not exist with " << numColors << " colors." << endl;
+            return false;
+        }
+
+        printSolution();
+        return true;
+    }
+
+    // Print the coloring solution
+    void printSolution() {
+    vector<string> colorNames = {"Red", "Green", "Blue", "Yellow", "Purple", "Orange", 
+                                "Cyan", "Magenta", "Lime", "Pink"}; // Extend as needed
+    
+    cout << "\nGraph coloring solution:" << endl;
+    for (int i = 0; i < V; i++) {
+        // Check bounds to prevent out-of-range access
+        if (colors[i] >= 0 && colors[i] < colorNames.size()) {
+            cout << "Vertex " << i << " -> Color " << colorNames[colors[i]] << endl;
+        } else {
+            cout << "Vertex " << i << " -> Invalid color index: " << colors[i] << endl;
+        }
+    }
+}
+};
+
+int main() {
+    int numNodes, numEdges, numColors;
+
+    cout << "=== Graph Coloring Problem ===" << endl;
+    cout << "Enter number of nodes: ";
+    cin >> numNodes;
+    cout << "Enter number of edges: ";
+    cin >> numEdges;
+    cout << "Enter number of colors available: ";
+    cin >> numColors;
+
+    GraphColoring gc(numNodes, numColors);
+
+    cout << "\nEnter edges (pair of nodes, 0-based index):" << endl;
+    for (int i = 0; i < numEdges; i++) {
+        int u, v;
+        cout << "Edge " << i+1 << ": ";
+        cin >> u >> v;
+        gc.addEdge(u, v);
+    }
+
+    // Solve the graph coloring problem
+    cout << "\nAttempting to color graph with " << numColors << " colors..." << endl;
+    gc.colorGraph();
+
+    return 0;
+}
+
+
+
+
+
+

@@ -1,0 +1,1189 @@
+//combined1
+
+1. //tic tac toe non ai
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cstdlib>
+#include <ctime>
+
+using namespace std;
+
+const int magicSquare[3][3] = {
+    {8, 1, 6},
+    {3, 5, 7},
+    {4, 9, 2}
+};
+
+void displayBoard(char board[3][3]) {
+    cout << "\n";
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            cout << board[i][j];
+            if (j < 2) cout << " | ";
+        }
+        cout << "\n";
+        if (i < 2) cout << "---------\n";
+    }
+    cout << "\n";
+}
+
+bool checkWin(const vector<int>& moves) {
+    int n = moves.size();
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1; j < n; j++) {
+            for (int k = j + 1; k < n; k++) {
+                if (moves[i] + moves[j] + moves[k] == 15) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+pair<int, int> findBestMove(const vector<int>& playerMoves, const vector<int>& computerMoves, const vector<pair<int, int>>& availableMoves) {
+
+    vector<int> allMoves;
+    for (const auto& move : playerMoves) allMoves.push_back(move);
+    for (const auto& move : computerMoves) allMoves.push_back(move);
+
+    for (const auto& move : availableMoves) {
+        int magicValue = magicSquare[move.first][move.second];
+        vector<int> testMoves = computerMoves;
+        testMoves.push_back(magicValue);
+        if (checkWin(testMoves)) return move;
+    }
+
+    for (const auto& move : availableMoves) {
+        int magicValue = magicSquare[move.first][move.second];
+        vector<int> testMoves = playerMoves;
+        testMoves.push_back(magicValue);
+        if (checkWin(testMoves)) return move;
+    }
+
+    return availableMoves[rand() % availableMoves.size()];
+}
+
+int main() {
+    srand(time(0));
+    char board[3][3] = {{' ', ' ', ' '}, {' ', ' ', ' '}, {' ', ' ', ' '}};
+    vector<int> playerMoves, computerMoves;
+    vector<pair<int, int>> availableMoves; 
+
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            availableMoves.push_back({i, j});
+        }
+    }
+
+    cout << "Welcome to Tic Tac Toe (Magic Board Method)!\n";
+    displayBoard(board);
+
+    while (!availableMoves.empty()) {
+        int row, col;
+        cout << "Your move (row and column: 0-2): ";
+        cin >> row >> col;
+
+        auto it = find(availableMoves.begin(), availableMoves.end(), make_pair(row, col));
+        if (it == availableMoves.end() || row < 0 || row > 2 || col < 0 || col > 2 || board[row][col] != ' ') {
+            cout << "Invalid move! Try again.\n";
+            continue;
+        }
+
+        board[row][col] = 'X';
+        int magicValue = magicSquare[row][col];
+        playerMoves.push_back(magicValue);
+        availableMoves.erase(it);
+
+        displayBoard(board);
+
+        if (checkWin(playerMoves)) {
+            cout << "You win! Congratulations!\n";
+            break;
+        }
+
+
+        //computer
+        if (!availableMoves.empty()) {
+            pair<int, int> computerMove = findBestMove(playerMoves, computerMoves, availableMoves);
+            int compRow = computerMove.first;
+            int compCol = computerMove.second;
+
+            board[compRow][compCol] = 'O';
+            int compMagicValue = magicSquare[compRow][compCol];
+            computerMoves.push_back(compMagicValue);
+            availableMoves.erase(find(availableMoves.begin(), availableMoves.end(), computerMove));
+
+            cout << "Computer's move:\n";
+            displayBoard(board);
+
+            if (checkWin(computerMoves)) {
+                cout << "Computer wins! Better luck next time.\n";
+                break;
+            }
+        }
+    }
+
+    if (availableMoves.empty() && !checkWin(playerMoves) && !checkWin(computerMoves)) {
+        cout << "It's a draw!\n";
+    }
+
+    return 0;
+}
+
+
+
+
+
+
+
+2.//tictactoe ai
+#include <iostream>
+#include <vector>
+using namespace std;
+
+char board[3][3] = {{' ', ' ', ' '}, {' ', ' ', ' '}, {' ', ' ', ' '}};
+
+void printBoard() {
+    cout << "\n";
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            cout << board[i][j];
+            if (j < 2) cout << " | ";
+        }
+        cout << "\n";
+        if (i < 2) cout << "--|---|--\n";
+    }
+    cout << "\n";
+}
+
+bool isWinning(char player) {
+    for (int i = 0; i < 3; i++) {
+        if ((board[i][0] == player && board[i][1] == player && board[i][2] == player) ||        // row
+            (board[0][i] == player && board[1][i] == player && board[2][i] == player))          // col
+            return true;
+    }
+    if((board[0][0] == player && board[1][1] == player && board[2][2] == player) ||
+           (board[0][2] == player && board[1][1] == player && board[2][0] == player))
+           return true;
+    
+    return false;
+}
+
+bool isBoardFull() {
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+            if (board[i][j] == ' ') return false; 
+    return true; 
+}
+
+int minimax(bool isMax) {
+    if (isWinning('O')) return 1;   // AI wins
+    if (isWinning('X')) return -1;  // Player wins
+    if (isBoardFull()) return 0;    // Draw
+
+    int bestScore = isMax ? -10 : 10;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            if (board[i][j] == ' ') {
+                board[i][j] = isMax ? 'O' : 'X';
+                int score = minimax(!isMax);
+                board[i][j] = ' '; 
+                bestScore = isMax ? max(bestScore, score) : min(bestScore, score);
+            }
+        }
+    }
+    return bestScore;
+}
+
+void makeBestMove() {
+    int bestScore = -10, moveRow = -1, moveCol = -1;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            if (board[i][j] == ' ') {
+                board[i][j] = 'O';
+                int score = minimax(false);
+                board[i][j] = ' ';
+                if (score > bestScore) {
+                    bestScore = score;
+                    moveRow = i;
+                    moveCol = j;
+                }
+            }
+        }
+    }
+    if (moveRow != -1 && moveCol != -1)
+        board[moveRow][moveCol] = 'O';
+}
+
+int main() {
+    int row, col;
+    bool gameRunning = true;
+    while (gameRunning) {
+        printBoard();
+
+        // Player
+        cout << "Enter your move (row and column 0-2): ";
+        cin >> row >> col;
+        if (row < 0 || row > 2 || col < 0 || col > 2 || board[row][col] != ' ') {
+            cout << "Invalid move! Try again.\n";
+            continue;
+        }
+        board[row][col] = 'X';
+
+        if (isWinning('X')) {
+            printBoard();
+            cout << "You win!\n";
+            gameRunning = false;
+            continue;
+        }
+        if (isBoardFull()) {
+            printBoard();
+            cout << "It's a draw!\n";
+            gameRunning = false;
+            continue;
+        }
+
+        // AI
+        makeBestMove();
+
+        if (isWinning('O')) {
+            printBoard();
+            cout << "AI wins!\n";
+            gameRunning = false;
+            continue;
+        }
+        if (isBoardFull()) {
+            printBoard();
+            cout << "It's a draw!\n";
+            gameRunning = false;
+            continue;
+        }
+    }
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+//isMax = true means it's AI's turn , try to maximise = max(bs, score)
+//Player = isMax = false, try to minimize = min(bs, score)
+
+
+
+
+
+
+
+
+3.//waterjarproblem bfsdfs
+#include <bits/stdc++.h>
+using namespace std;
+
+void bfs(int j1, int j2, int goal) {
+    queue<pair<pair<int, int>, int>> q;
+    set<pair<int, int>> visited;
+    
+    q.push({{0, 0}, 0});
+    visited.insert({0, 0});
+
+    while (!q.empty()) {
+        int x = q.front().first.first;   
+        int y = q.front().first.second;  
+        int steps = q.front().second;
+        q.pop();
+
+        if (x == goal || y == goal) {
+            cout << "Goal reached in " << steps << " steps!\n";
+            return;
+        }
+
+        vector<pair<int, int>> nextStates = {
+            {j1, y},   
+            {x, j2},   
+            {0, y},    
+            {x, 0},   
+            {x - min(x, j2 - y), y + min(x, j2 - y)}, 
+            {x + min(y, j1 - x), y - min(y, j1 - x)}  
+        };
+
+        for (auto state : nextStates) {
+            if (visited.find(state) == visited.end()) { 
+                q.push({state, steps + 1});
+                visited.insert(state);
+            }
+        }
+    }
+
+    cout << "Goal cannot be reached.\n";
+}
+
+int main() {
+    int j1 = 3, j2 = 4, goal = 2;
+    bfs(j1, j2, goal);
+    return 0;
+}
+
+
+
+
+
+
+4 . //waterhardfs
+
+#include <bits/stdc++.h>
+using namespace std;
+
+void printPath(map<pair<int, int>, pair<int, int>>& parent, pair<int, int> state) {
+    vector<pair<int, int>> path;
+    
+    while (state != make_pair(0, 0)) {
+        path.push_back(state);
+        state = parent[state];
+    }
+    
+    path.push_back({0, 0}); 
+    reverse(path.begin(), path.end()); 
+    cout << "Steps to reach goal:\n";
+    for (auto& p : path) {
+        cout << "(" << p.first << ", " << p.second << ")\n";
+    }
+}
+
+bool dfs(int x, int y, int j1, int j2, int goal, set<pair<int, int>>& visited, 
+         map<pair<int, int>, pair<int, int>>& parent) {
+    
+    if (x == goal || y == goal) {
+        cout << "Goal reached!\n";
+        printPath(parent, {x, y});
+        return true;
+    }
+
+    visited.insert({x, y});
+
+    vector<pair<int, int>> nextStates = {
+        {j1, y},  
+        {x, j2},   
+        {0, y},    
+        {x, 0},    
+        {x - min(x, j2 - y), y + min(x, j2 - y)}, 
+        {x + min(y, j1 - x), y - min(y, j1 - x)} 
+    };
+
+    for (auto state : nextStates) {
+        if (visited.find(state) == visited.end()) { 
+            parent[state] = {x, y}; 
+            if (dfs(state.first, state.second, j1, j2, goal, visited, parent)) {
+                return true; 
+            }
+        }
+    }
+
+    return false;
+}
+
+void solveWaterJugDFS(int j1, int j2, int goal) {
+    set<pair<int, int>> visited;
+    map<pair<int, int>, pair<int, int>> parent;
+    parent[{0, 0}] = {-1, -1};
+
+    if (!dfs(0, 0, j1, j2, goal, visited, parent)) {
+        cout << "Goal cannot be reached.\n";
+    }
+}
+
+int main() {
+    int j1 = 3, j2 = 4, goal = 2;
+    solveWaterJugDFS(j1, j2, goal);
+    return 0;
+}
+
+
+
+
+
+5.//missionary cannible bfs
+#include <iostream>
+#include <queue>
+#include <set>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+struct State {
+    int missionaries, cannibals, boat;
+    State* parent;
+};
+
+State* createState(int m, int c, int b, State* p) {
+    State* newState = new State{m, c, b, p};
+    return newState;
+}
+
+bool isValid(State* state) {
+    if (state->missionaries < 0 || state->cannibals < 0 || state->missionaries > 3 || state->cannibals > 3)
+        return false;
+    if ((state->missionaries < state->cannibals && state->missionaries > 0) ||
+        (3 - state->missionaries < 3 - state->cannibals && (3 - state->missionaries) > 0))
+        return false;
+    return true;
+}
+
+bool isGoal(State* state) {
+    return state->missionaries == 0 && state->cannibals == 0 && state->boat == 0;
+}
+
+vector<State*> getNextStates(State* current) {
+    vector<State*> nextStates;
+    int moves[5][2] = {{1, 0}, {2, 0}, {0, 1}, {0, 2}, {1, 1}};
+    
+    for (auto &move : moves) {
+        int newM = current->missionaries + (current->boat == 1 ? -move[0] : move[0]);
+        int newC = current->cannibals + (current->boat == 1 ? -move[1] : move[1]);
+        int newB = 1 - current->boat;
+        State* newState = createState(newM, newC, newB, current);
+        if (isValid(newState)) {
+            nextStates.push_back(newState);
+        } else {
+            delete newState;
+        }
+    }
+    return nextStates;
+}
+
+void printSolution(State* state) {
+    vector<State*> path;
+    while (state) {
+        path.push_back(state);
+        state = state->parent;
+    }
+    reverse(path.begin(), path.end());
+    for (auto s : path) {
+        cout << "(" << s->missionaries << "," << s->cannibals << "," << s->boat << ")" << endl;
+    }
+}
+
+void bfs() {
+    queue<State*> queue;
+    set<string> visited;
+    State* initialState = createState(3, 3, 1, nullptr);
+    queue.push(initialState);
+    visited.insert("3,3,1");
+    
+    while (!queue.empty()) {
+        State* current = queue.front();
+        queue.pop();
+        
+        if (isGoal(current)) {
+            printSolution(current);
+            return;
+        }
+
+        for (State* next : getNextStates(current)) {
+            string stateString = to_string(next->missionaries) + "," + to_string(next->cannibals) + "," + to_string(next->boat);
+            if (visited.find(stateString) == visited.end()) {
+                queue.push(next);
+                visited.insert(stateString);
+            } else {
+                delete next;
+            }
+        }
+    }
+}
+
+int main() {
+    bfs();
+    return 0;
+}
+
+
+
+
+6.
+
+//8puzzle bfsdfs
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <stack>
+#include <unordered_set>
+#include <algorithm>
+using namespace std;
+
+// Structure to represent a state of the puzzle
+struct PuzzleState {
+    vector<vector<int>> board;
+    int zero_row, zero_col; // Position of the empty tile (0)
+    string path; // Path taken to reach this state
+    
+    // Constructor
+    PuzzleState(vector<vector<int>> b, int zr, int zc, string p) 
+        : board(b), zero_row(zr), zero_col(zc), path(p) {}
+};
+
+// Function to check if two states are equal
+bool areStatesEqual(const vector<vector<int>>& a, const vector<vector<int>>& b) {
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            if (a[i][j] != b[i][j]) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// Function to convert board to a string for hashing
+string boardToString(const vector<vector<int>>& board) {
+    string s;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            s += to_string(board[i][j]);
+        }
+    }
+    return s;
+}
+
+// Function to check if the current state is the goal state
+bool isGoalState(const vector<vector<int>>& board) {
+    vector<vector<int>> goal = {{1, 2, 3}, {4, 5, 6}, {7, 8, 0}};
+    return areStatesEqual(board, goal);
+}
+
+// Function to print the board
+void printBoard(const vector<vector<int>>& board) {
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            cout << board[i][j] << " ";
+        }
+        cout << endl;
+    }
+}
+
+// Function to generate possible moves
+vector<PuzzleState> generateMoves(const PuzzleState& state) {
+    vector<PuzzleState> moves;
+    int row = state.zero_row;
+    int col = state.zero_col;
+    
+    // Directions: up, down, left, right
+    int dr[] = {-1, 1, 0, 0};
+    int dc[] = {0, 0, -1, 1};
+    string directions[] = {"U", "D", "L", "R"};
+    
+    for (int i = 0; i < 4; i++) {
+        int new_row = row + dr[i];
+        int new_col = col + dc[i];
+        
+        if (new_row >= 0 && new_row < 3 && new_col >= 0 && new_col < 3) {
+            vector<vector<int>> new_board = state.board;
+            swap(new_board[row][col], new_board[new_row][new_col]);
+            
+            string new_path = state.path + directions[i];
+            moves.push_back(PuzzleState(new_board, new_row, new_col, new_path));
+        }
+    }
+    
+    return moves;
+}
+
+// Breadth-First Search implementation
+void bfs(const vector<vector<int>>& initial) {
+    queue<PuzzleState> q;
+    unordered_set<string> visited;
+    
+    // Find initial zero position
+    int zero_row, zero_col;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            if (initial[i][j] == 0) {
+                zero_row = i;
+                zero_col = j;
+                break;
+            }
+        }
+    }
+    
+    PuzzleState start(initial, zero_row, zero_col, "");
+    q.push(start);
+    visited.insert(boardToString(initial));
+    
+    int nodes_expanded = 0;
+    
+    while (!q.empty()) {
+        PuzzleState current = q.front();
+        q.pop();
+        nodes_expanded++;
+        
+        if (isGoalState(current.board)) {
+            cout << "\nSolution found!" << endl;
+            cout << "Path: " << current.path << endl;
+            cout << "Number of moves: " << current.path.length() << endl;
+            cout << "Nodes expanded: " << nodes_expanded << endl;
+            return;
+        }
+        
+        vector<PuzzleState> moves = generateMoves(current);
+        for (const PuzzleState& move : moves) {
+            string move_str = boardToString(move.board);
+            if (visited.find(move_str) == visited.end()) {
+                visited.insert(move_str);
+                q.push(move);
+            }
+        }
+    }
+    
+    cout << "\nNo solution found!" << endl;
+}
+
+// Depth-First Search implementation
+void dfs(const vector<vector<int>>& initial) {
+    stack<PuzzleState> s;
+    unordered_set<string> visited;
+    
+    // Find initial zero position
+    int zero_row, zero_col;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            if (initial[i][j] == 0) {
+                zero_row = i;
+                zero_col = j;
+                break;
+            }
+        }
+    }
+    
+    PuzzleState start(initial, zero_row, zero_col, "");
+    s.push(start);
+    visited.insert(boardToString(initial));
+    
+    int nodes_expanded = 0;
+    int max_depth = 0;
+    
+    while (!s.empty()) {
+        PuzzleState current = s.top();
+        s.pop();
+        nodes_expanded++;
+        
+        if (isGoalState(current.board)) {
+            cout << "\nSolution found!" << endl;
+            cout << "Path: " << current.path << endl;
+            cout << "Number of moves: " << current.path.length() << endl;
+            cout << "Nodes expanded: " << nodes_expanded << endl;
+            return;
+        }
+        
+        // Limit depth to prevent infinite recursion (optional)
+        if (current.path.length() > 50) {
+            continue;
+        }
+        
+        vector<PuzzleState> moves = generateMoves(current);
+        for (const PuzzleState& move : moves) {
+            string move_str = boardToString(move.board);
+            if (visited.find(move_str) == visited.end()) {
+                visited.insert(move_str);
+                s.push(move);
+            }
+        }
+    }
+    
+    cout << "\nNo solution found!" << endl;
+}
+
+int main() {
+    cout << "8-Puzzle Solver" << endl;
+    cout << "Enter the initial state of the puzzle (3x3 matrix, use 0 for empty tile):" << endl;
+    
+    vector<vector<int>> initial(3, vector<int>(3));
+    
+    // Read input from user
+    for (int i = 0; i < 3; i++) {
+        cout << "Row " << i+1 << ": ";
+        for (int j = 0; j < 3; j++) {
+            cin >> initial[i][j];
+        }
+    }
+    
+    cout << "\nInitial state:" << endl;
+    printBoard(initial);
+    
+    int choice;
+    cout << "\nChoose search algorithm:" << endl;
+    cout << "1. Breadth-First Search (BFS)" << endl;
+    cout << "2. Depth-First Search (DFS)" << endl;
+    cout << "Enter your choice (1 or 2): ";
+    cin >> choice;
+    
+    switch (choice) {
+        case 1:
+            cout << "\nSolving using BFS..." << endl;
+            bfs(initial);
+            break;
+        case 2:
+            cout << "\nSolving using DFS..." << endl;
+            dfs(initial);
+            break;
+        default:
+            cout << "Invalid choice!" << endl;
+    }
+    
+    return 0;
+}
+
+
+
+
+
+
+
+7.//8 queen using bfsdfs
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <stack>
+#include <algorithm>
+using namespace std;
+
+class NQueensSolver {
+private:
+    int size; // Board size (8 for 8 Queens)
+    int solutionCount;
+
+    // Check if a queen can be placed at board[row][col]
+    bool isSafe(const vector<int>& board, int row, int col) {
+        // Check this column in previous rows
+        for (int i = 0; i < row; i++) {
+            if (board[i] == col) return false;
+            // Check diagonals
+            if (abs(board[i] - col) == abs(i - row)) return false;
+        }
+        return true;
+    }
+
+    // Print a solution
+    void printSolution(const vector<int>& board) {
+        cout << "Solution #" << ++solutionCount << ":\n";
+        for (int row = 0; row < size; row++) {
+            for (int col = 0; col < size; col++) {
+                cout << (board[row] == col ? "Q " : ". ");
+            }
+            cout << endl;
+        }
+        cout << endl;
+    }
+
+    // BFS implementation
+    void solveBFS() {
+        queue<vector<int>> q;
+        q.push(vector<int>()); // Start with empty board
+
+        while (!q.empty()) {
+            vector<int> current = q.front();
+            q.pop();
+
+            int row = current.size();
+
+            // If all queens are placed, print solution
+            if (row == size) {
+                printSolution(current);
+                continue;
+            }
+
+            // Try placing queen in each column of current row
+            for (int col = 0; col < size; col++) {
+                if (isSafe(current, row, col)) {
+                    vector<int> newBoard = current;
+                    newBoard.push_back(col);
+                    q.push(newBoard);
+                }
+            }
+        }
+    }
+
+    // DFS implementation
+    void solveDFS() {
+        stack<vector<int>> s;
+        s.push(vector<int>()); // Start with empty board
+
+        while (!s.empty()) {
+            vector<int> current = s.top();
+            s.pop();
+
+            int row = current.size();
+
+            // If all queens are placed, print solution
+            if (row == size) {
+                printSolution(current);
+                continue;
+            }
+
+            // Try placing queen in each column of current row
+            for (int col = 0; col < size; col++) {
+                if (isSafe(current, row, col)) {
+                    vector<int> newBoard = current;
+                    newBoard.push_back(col);
+                    s.push(newBoard);
+                }
+            }
+        }
+    }
+
+public:
+    NQueensSolver(int n = 8) : size(n), solutionCount(0) {}
+
+    void solve(int method) {
+        solutionCount = 0;
+        if (method == 1) {
+            cout << "Solving 8 Queens using BFS...\n";
+            solveBFS();
+        } else {
+            cout << "Solving 8 Queens using DFS...\n";
+            solveDFS();
+        }
+        cout << "Total solutions found: " << solutionCount << endl;
+    }
+};
+
+int main() {
+    NQueensSolver solver(8); // 8 Queens problem
+
+    int choice;
+    cout << "Choose search method:\n";
+    cout << "1. Breadth-First Search (BFS)\n";
+    cout << "2. Depth-First Search (DFS)\n";
+    cout << "Enter your choice (1 or 2): ";
+    cin >> choice;
+
+    if (choice == 1 || choice == 2) {
+        solver.solve(choice);
+    } else {
+        cout << "Invalid choice!\n";
+    }
+
+    return 0;
+}
+
+
+
+
+
+8.//family tree prolog
+/* Basic Family Tree Program */
+
+% Facts about parents
+parent(john, mary).    % John is Mary's parent
+parent(john, tom).     % John is Tom's parent
+parent(mary, ann).     % Mary is Ann's parent
+parent(mary, bob).     % Mary is Bob's parent
+parent(tom, lucy).     % Tom is Lucy's parent
+parent(tom, emma).     % Tom is Emma's parent
+
+% Facts about gender
+male(john).
+male(tom).
+male(bob).
+female(mary).
+female(ann).
+female(lucy).
+female(emma).
+
+% Rules for family relationships
+father(Father, Child) :-
+    parent(Father, Child),
+    male(Father).
+
+mother(Mother, Child) :-
+    parent(Mother, Child),
+    female(Mother).
+
+grandparent(GP, GC) :-
+    parent(GP, Parent),
+    parent(Parent, GC).
+
+sibling(X, Y) :-
+    parent(P, X),
+    parent(P, Y),
+    X \= Y.  % X and Y are different people
+
+aunt_or_uncle(A, N) :-
+    parent(P, N),
+    sibling(A, P).
+
+cousin(X, Y) :-
+    parent(P1, X),
+    parent(P2, Y),
+    sibling(P1, P2),
+    X \= Y.
+
+% Query examples:
+% ?- father(X, mary).    % Who is Mary's father?
+% ?- mother(X, bob).     % Who is Bob's mother?
+% ?- grandparent(john, X). % Who are John's grandchildren?
+% ?- sibling(ann, bob).  % Are Ann and Bob siblings?
+
+
+
+
+
+
+
+9.//prolog - medical diagonosis
+:- dynamic(has_symptom/1).
+
+start :-
+    write('--- Medical Diagnosis Expert System ---'), nl,
+    ask_questions,
+    diagnose(Disease),
+    write('Diagnosis: You may have '), write(Disease), nl,
+    cleanup.
+
+ask_questions :-
+    symptom_list(Symptoms),
+    ask_all(Symptoms).
+
+symptom_list([fever, cough, sore_throat, body_ache, 
+              sneezing, runny_nose, chills, sweating, 
+              nausea, headache]).
+
+ask_all([]).
+ask_all([Symptom|Rest]) :-
+    format('Do you have ~w? (yes/no) ', [Symptom]),
+    read(Reply),
+    ((Reply == yes) -> assert(has_symptom(Symptom)) ; true),
+    ask_all(Rest).
+
+diagnose('COVID-19') :-
+    has_symptom(fever),
+    has_symptom(cough),
+    has_symptom(headache),
+    has_symptom(body_ache), !.
+
+diagnose(flu) :-
+    has_symptom(fever),
+    has_symptom(cough),
+    has_symptom(body_ache),
+    has_symptom(sore_throat), !.
+
+diagnose(common_cold) :-
+    has_symptom(sneezing),
+    has_symptom(runny_nose),
+    has_symptom(cough), !.
+
+diagnose(malaria) :-
+    has_symptom(fever),
+    has_symptom(chills),
+    has_symptom(sweating),
+    has_symptom(nausea), !.
+
+diagnose(strep_throat) :-
+    has_symptom(sore_throat),
+    has_symptom(fever),
+    \+ has_symptom(cough), !.
+
+diagnose(unknown).
+
+cleanup :-
+    retractall(has_symptom(_)).
+
+
+
+
+
+
+10.// prolog  - towerofhanoi
+
+% Base case: Move one disk directly from Source to Destination
+move(1, Source, Destination, _) :-
+    format('Move disk from ~w to ~w~n', [Source, Destination]).
+
+% Recursive case: Move N disks from Source to Destination using Auxiliary
+move(N, Source, Destination, Auxiliary) :-
+    N > 1,
+    M is N - 1,
+
+    % Move the top N-1 disks from Source to Auxiliary using Destination as a temporary peg
+    move(M, Source, Auxiliary, Destination),
+
+    % Move the remaining disk directly from Source to Destination
+    move(1, Source, Destination, _),
+
+    % Move the N-1 disks from Auxiliary to Destination using Source as a temporary peg
+    move(M, Auxiliary, Destination, Source).
+
+% Hardcoded start for 3 disks
+start :-
+    write('Solving Tower of Hanoi with 3 disks:'), nl,
+    move(3, 'A', 'C', 'B').
+
+% Auto-execute the start predicate on load
+:- initialization(start).
+
+
+
+
+
+
+
+
+11. // vehicle classification
+/* 
+   Vehicle Classification System
+   - Takes user input to classify vehicles
+   - Covers motorcycles, cars, trucks, buses, bicycles, and more
+*/
+
+:- initialization(main).
+
+main :-
+    write('=== VEHICLE CLASSIFICATION SYSTEM ==='), nl, nl,
+    write('Answer the following questions about the vehicle:'), nl, nl,
+    
+    % Get vehicle attributes
+    get_wheels(Wheels),
+    get_handlebars(HasHandlebars),
+    get_passenger_capacity(Passengers),
+    get_cargo_capacity(Cargo),
+    get_passenger_vehicle(CarriesPassengers),
+    
+    % Classify the vehicle
+    ( classify_vehicle(VehicleType, Wheels, HasHandlebars, Passengers, Cargo, CarriesPassengers) ->
+        format('\nClassification Result: This is a ~w\n', [VehicleType])
+    ; 
+        write('\nUnable to classify this vehicle with the given information.\n')
+    ).
+
+% Classification rules
+classify_vehicle(motorcycle, 2, yes, _, _, _).
+classify_vehicle(bicycle, 2, yes, 1, low, no).
+classify_vehicle(car, 4, no, _, low, yes).
+classify_vehicle(truck, 6, _, _, high, _).
+classify_vehicle(bus, 4, _, Passengers, _, _) :- Passengers > 10.
+classify_vehicle(pickup_truck, 4, _, _, medium, no).
+classify_vehicle(scooter, 2, yes, 1, low, no).
+classify_vehicle(semi_truck, 18, _, _, high, no).
+
+% Input predicates
+get_wheels(Wheels) :-
+    repeat,
+    write('1. How many wheels does it have? '),
+    read(Wheels),
+    ( integer(Wheels), Wheels > 0 -> true
+    ; write('Invalid input. Please enter a positive number.\n'), fail
+    ).
+
+get_handlebars(HasHandlebars) :-
+    repeat,
+    write('2. Does it have handlebars? (yes/no) '),
+    read(HasHandlebars),
+    ( member(HasHandlebars, [yes, no]) -> true
+    ; write('Please answer with "yes." or "no."\n'), fail
+    ).
+
+get_passenger_capacity(Passengers) :-
+    repeat,
+    write('3. What is the passenger capacity? '),
+    read(Passengers),
+    ( integer(Passengers), Passengers >= 0 -> true
+    ; write('Invalid input. Please enter a non-negative number.\n'), fail
+    ).
+
+get_cargo_capacity(Cargo) :-
+    repeat,
+    write('4. What is the cargo capacity? (low/medium/high) '),
+    read(Cargo),
+    ( member(Cargo, [low, medium, high]) -> true
+    ; write('Please answer with "low.", "medium.", or "high."\n'), fail
+    ).
+
+get_passenger_vehicle(CarriesPassengers) :-
+    repeat,
+    write('5. Is it primarily for carrying passengers? (yes/no) '),
+    read(CarriesPassengers),
+    ( member(CarriesPassengers, [yes, no]) -> true
+    ; write('Please answer with "yes." or "no."\n'), fail
+    ).
+
+
+
+
+
+12// prolog Wumpus world
+% Knowledge base
+
+% Dimensions of the world
+world_size(4, 4).
+
+% Facts: locations of Wumpus, pits, and gold
+wumpus(2, 3).
+pit(3, 1).
+pit(1, 3).
+pit(4, 4).
+gold(3, 3).
+
+% Safe if no Wumpus or pit
+safe(X, Y) :-
+    \+ wumpus(X, Y),
+    \+ pit(X, Y).
+
+% Perceptions
+stench(X, Y) :-
+    wumpus(X1, Y1),
+    adjacent(X, Y, X1, Y1).
+
+breeze(X, Y) :-
+    pit(X1, Y1),
+    adjacent(X, Y, X1, Y1).
+
+glitter(X, Y) :-
+    gold(X, Y).
+
+% Adjacent cells (4 possible moves)
+adjacent(X, Y, X1, Y) :- X1 is X + 1, world_size(W, _), X1 =< W.
+adjacent(X, Y, X1, Y) :- X1 is X - 1, X1 > 0.
+adjacent(X, Y, X, Y1) :- Y1 is Y + 1, world_size(_, H), Y1 =< H.
+adjacent(X, Y, X, Y1) :- Y1 is Y - 1, Y1 > 0.
+
+% Moving in the world (avoiding visited positions)
+move(X, Y, X1, Y, Visited) :- 
+    adjacent(X, Y, X1, Y),
+    safe(X1, Y),
+    \+ member((X1, Y), Visited).
+
+move(X, Y, X, Y1, Visited) :- 
+    adjacent(X, Y, X, Y1),
+    safe(X, Y1),
+    \+ member((X, Y1), Visited).
+
+% Find gold
+find_gold(X, Y) :-
+    glitter(X, Y),
+    format('Gold found at (~w, ~w)~n', [X, Y]).
+
+% Explore the world (avoiding infinite loops)
+explore(X, Y, Visited) :-
+    find_gold(X, Y).
+
+explore(X, Y, Visited) :-
+    move(X, Y, X1, Y1, Visited),
+    format('Moving to (~w, ~w)~n', [X1, Y1]),
+    explore(X1, Y1, [(X1, Y1) | Visited]).
+
+% Starting point
+start :-
+    write('Exploring the Wumpus World from (1,1):'), nl,
+    explore(1, 1, [(1, 1)]).
+
+% Auto-execute the start predicate on load
+:- initialization(start).
+
+
